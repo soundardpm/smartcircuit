@@ -1,0 +1,7 @@
+{
+  "name": "SmartCircuit",
+  "description": "This is Smart IC selection for your use case platform ",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
