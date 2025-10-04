@@ -29,13 +29,16 @@ import { marked } from 'marked';
 // The API key is read from the environment variable `process.env.API_KEY`.
 const API_KEY = process.env.API_KEY;
 
+const mainArea = document.getElementById('main-area') as HTMLDivElement;
 const chatContainer = document.getElementById('chat-container') as HTMLDivElement;
 const chatForm = document.getElementById('chat-form') as HTMLFormElement;
 const chatInput = document.getElementById('chat-input') as HTMLInputElement;
 const sendButton = chatForm.querySelector('button[type="submit"]') as HTMLButtonElement;
 const micButton = document.getElementById('mic-button') as HTMLButtonElement;
-const promptSuggestionsContainer = document.getElementById('prompt-suggestions') as HTMLDivElement;
+const newChatBtn = document.getElementById('new-chat-btn') as HTMLButtonElement;
+const chatHistoryList = document.querySelector('#chat-history ul') as HTMLUListElement;
 
+let isChatStarted = false;
 
 const SYSTEM_PROMPT = `# 🧠 System Prompt: Intelligent IC Selection Assistant (Pilot Version)
 
@@ -214,6 +217,39 @@ const renderer = {
 marked.use({ renderer });
 
 /**
+ * Renders the initial view with a welcome message and prompt suggestions.
+ */
+function renderInitialView() {
+  mainArea.classList.add('initial-state');
+  chatContainer.innerHTML = `
+    <div class="initial-view-wrapper">
+      <h1>Ready when you are.</h1>
+      <div class="prompt-suggestions-grid"></div>
+    </div>
+  `;
+  const suggestionsGrid = chatContainer.querySelector('.prompt-suggestions-grid');
+  const suggestions = [
+    "Give me an idea for a smart surfboard",
+    "Design a video doorbell",
+    "Suggest a voltage regulator for 12V to 5V, 1A",
+    "Show a block diagram for a buck converter"
+  ];
+
+  suggestions.forEach(text => {
+    const button = document.createElement('button');
+    button.textContent = text;
+    button.className = 'prompt-suggestion-card';
+    button.type = 'button'; // Prevent form submission
+    button.addEventListener('click', () => {
+      chatInput.value = text;
+      chatInput.focus();
+      chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
+    });
+    suggestionsGrid?.appendChild(button);
+  });
+}
+
+/**
  * Appends a new message to the chat container.
  * @param text The message text. Can be markdown.
  * @param sender The sender of the message, 'user' or 'model'.
@@ -246,35 +282,17 @@ async function appendMessage(
 async function main() {
   if (!API_KEY) {
     chatContainer.innerHTML =
-      '<p><strong>Error:</strong> API key not found. Please set the API_KEY environment variable.</p>';
+      '<p class="error"><strong>Error:</strong> API key not found. Please set the API_KEY environment variable.</p>';
     return;
   }
   
-  // Set up prompt suggestions
-  if (promptSuggestionsContainer) {
-    const suggestions = [
-      "Give me an idea for a smart surfboard",
-      "Design a video doorbell",
-      "Suggest a voltage regulator for 12V to 5V, 1A",
-      "Show a block diagram for a buck converter"
-    ];
+  renderInitialView();
 
-    suggestions.forEach(text => {
-      const button = document.createElement('button');
-      button.textContent = text;
-      button.className = 'prompt-suggestion';
-      button.type = 'button'; // Prevent form submission
-      button.addEventListener('click', () => {
-        chatInput.value = text;
-        chatInput.focus();
-        chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
-      });
-      promptSuggestionsContainer.appendChild(button);
-    });
-  }
+  newChatBtn.addEventListener('click', () => {
+    window.location.reload();
+  });
 
   // Set up speech recognition
-  // Fix: Rename constant to avoid conflict with the SpeechRecognition interface type. This resolves multiple TypeScript errors.
   const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition: SpeechRecognition | null = null;
   let isRecording = false;
@@ -345,14 +363,20 @@ async function main() {
   chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    // Hide suggestions on first interaction
-    if (promptSuggestionsContainer?.parentElement) {
-      promptSuggestionsContainer.remove();
-      chatContainer.style.paddingBottom = '80px';
-    }
-
     const message = chatInput.value.trim();
     if (!message) return;
+
+    // On first interaction, clear initial view and set up chat history
+    if (!isChatStarted) {
+      isChatStarted = true;
+      mainArea.classList.remove('initial-state');
+      chatContainer.innerHTML = '';
+      
+      const historyItem = document.createElement('li');
+      historyItem.textContent = message.substring(0, 30) + (message.length > 30 ? '...' : '');
+      chatHistoryList.appendChild(historyItem);
+    }
+
 
     // Disable form and display user message
     chatInput.value = '';
